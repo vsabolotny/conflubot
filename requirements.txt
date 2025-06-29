@@ -4,3 +4,4 @@ tf-keras
 python-dotenv
 requests
 qdrant-client>=1.7.0
+anthropic
