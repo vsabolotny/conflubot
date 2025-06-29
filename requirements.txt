@@ -3,4 +3,4 @@ sentence-transformers
 tf-keras
 python-dotenv
 requests
-qdrant-client
+qdrant-client>=1.7.0
