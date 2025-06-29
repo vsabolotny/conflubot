@@ -1,3 +1,5 @@
 faiss-cpu 
 sentence-transformers
 tf-keras
+python-dotenv
+requests
