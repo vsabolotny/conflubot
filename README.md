@@ -111,3 +111,7 @@ docker run --rm faiss-example
 ## Ressoursen
 
 Admin panel atlassian https://admin.atlassian.com/
+
+## Datenbank Qdrant
+
+Dashboard: http://localhost:6333/dashboard#/collections 

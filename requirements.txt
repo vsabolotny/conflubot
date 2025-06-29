@@ -3,3 +3,4 @@ sentence-transformers
 tf-keras
 python-dotenv
 requests
+qdrant-client
