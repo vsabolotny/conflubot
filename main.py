@@ -33,14 +33,19 @@ class AskResponse(BaseModel):
 
 # Hilfsfunktionen
 def get_context(query: str, top_k: int):
-    vector = embedder.encode(query).tolist()
-    results = qdrant.query_points(
+    """
+    Findet die relevantesten Text-Chunks für eine gegebene Anfrage.
+    """
+    query_embedding = embedder.encode(query).tolist()
+    
+    # FIX: The keyword argument is 'query', not 'vector'.
+    search_result = qdrant.query_points(
         collection_name=COLLECTION_NAME,
-        vector=vector,
+        query=query_embedding,
         limit=top_k,
         with_payload=True
     )
-    return results
+    return search_result.points
 
 def build_prompt(query: str, context_chunks):
     context_text = ""
@@ -54,13 +59,22 @@ def build_prompt(query: str, context_chunks):
         f"{AI_PROMPT}"
     )
 
-def ask_claude(prompt: str) -> str:
-    response = anthropic.completions.create(
+def ask_claude(user_prompt: str) -> str:
+    """
+    Fragt das Claude-Modell mit dem bereitgestellten Prompt über die Messages API.
+    """
+    # FIX: Use the Messages API for Claude 3.5 Sonnet
+    system_prompt = "Du bist ein hilfreicher Assistent, der Fragen auf Basis interner Wissensdokumente beantwortet. Wenn die Antwort nicht im Kontext enthalten ist, sage ehrlich 'Ich weiß es nicht.'"
+    
+    response = anthropic.messages.create(
         model=CLAUDE_MODEL,
-        max_tokens_to_sample=500,
-        prompt=prompt
+        max_tokens=500,
+        system=system_prompt,
+        messages=[
+            {"role": "user", "content": user_prompt}
+        ]
     )
-    return response.completion.strip()
+    return response.content[0].text.strip()
 
 # API-Endpunkte
 @app.get("/health")
@@ -74,19 +88,26 @@ def version():
 @app.post("/ask", response_model=AskResponse)
 def ask(req: AskRequest):
     try:
-        context = get_context(req.question, req.top_k)
-        prompt = build_prompt(req.question, context)
-        answer = ask_claude(prompt)
+        context_chunks = get_context(req.question, req.top_k)
+        
+        context_text = ""
+        for i, chunk in enumerate(context_chunks):
+            source = chunk.payload.get('source', 'Unbekannte Quelle')
+            page = chunk.payload.get('page', '?')
+            text = chunk.payload.get('text', '')
+            context_text += f"Dokument {i+1} (Quelle: {source}, Seite: {page}):\n{text}\n\n"
 
-        context_used = [
-            {
-                "title": c.payload.get("title", "ohne Titel"),
-                "url": c.payload.get("url", ""),
-                "text": c.payload.get("text", "")[:200] + "..."
-            } for c in context
-        ]
+        user_prompt = (
+            f"Bitte beantworte die folgende Frage nur auf Basis des bereitgestellten Kontexts.\n\n"
+            f"--- BEGINN KONTEXT ---\n{context_text}--- ENDE KONTEXT ---\n\n"
+            f"Frage: {req.question}"
+        )
 
-        return AskResponse(answer=answer, context_used=context_used)
+        answer = ask_claude(user_prompt)
+        
+        context_list = [chunk.payload for chunk in context_chunks]
+        return AskResponse(answer=answer, context_used=context_list)
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"An error occurred: {e}")
+        raise HTTPException(status_code=500, detail="An internal server error occurred.")
