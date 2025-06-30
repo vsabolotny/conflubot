@@ -1,117 +1,87 @@
-# 🤖 Slack KI-Wissensassistent mit Confluence-Integration und Anthropic LLM
+# Confluence Q&A with Claude & Qdrant
 
-Ein semantischer Chatbot, der in Slack integriert ist und Teamfragen mit Hilfe von Confluence-Dokumenten und einem leistungsstarken LLM (Claude von Anthropic) beantwortet.
-
-## 🔍 Ziel
-
-Hilf Slack-Nutzern, auf einfache Weise auf internes Wissen zuzugreifen – direkt im Chat, intelligent und kontextbasiert.
+This project provides a question-answering system that uses a Large Language Model (Claude 3.5 Sonnet) to answer questions based on knowledge stored in a Confluence space. It uses Qdrant as a vector database to perform efficient similarity searches for relevant context.
 
 ---
 
-## 🧱 Architektur
+## ✨ Features
 
-```text
-Slack ↔ FastAPI ↔ Vektor-Datenbank (Qdrant)
-                    ↕️                     
-          Confluence API  →  Embedding Service
-                    ↕️                     
-                  Claude (Anthropic LLM)
-```
+-   **Data Ingestion**: Fetches pages from a specified Confluence space.
+-   **Vector Embeddings**: Converts document chunks into vector embeddings using `sentence-transformers`.
+-   **Vector Storage**: Stores and indexes embeddings in a Qdrant collection for fast retrieval.
+-   **RAG Pipeline**: Implements a Retrieval-Augmented Generation (RAG) pipeline.
+-   **Question Answering**: Uses Anthropic's Claude 3.5 Sonnet model to generate answers based on the retrieved context.
 
 ---
 
-## 🚀 Features
+## 🚀 Getting Started
 
-- 🔗 Integration mit Slack (Slash-Command `/askai`)
-- 📘 Crawling von Confluence-Seiten über die API
-- 🧠 Semantische Suche durch Vektor-Datenbank
-- 💬 Formulierung präziser Antworten mit Claude
-- 🛠 Erweiterbar, z. B. durch Feedback oder Rechteprüfung
+### 1. Prerequisites
 
----
+-   Python 3.10+
+-   Access to a Confluence space with an API token.
+-   An Anthropic API key.
+-   Docker and Docker Compose (for running Qdrant).
 
-## ⚙️ Technologie-Stack
+### 2. Setup
 
-| Bereich             | Tool/Technologie                   |
-|---------------------|------------------------------------|
-| Embeddings          | `sentence-transformers`            |
-| Vektor-Datenbank    | Qdrant                             |
-| Backend/API         | FastAPI                            |
-| Slack SDK           | `slack_bolt` (Python)              |
-| LLM API             | Claude (Anthropic)                 |
+1.  **Clone the repository:**
+    ```bash
+    git clone <your-repository-url>
+    cd vektor-exp
+    ```
 
----
+2.  **Set up Qdrant:**
+    The easiest way to run Qdrant is with Docker.
+    ```bash
+    docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant
+    ```
+    Your Qdrant dashboard will be available at [http://localhost:6333/dashboard](http://localhost:6333/dashboard).
 
-## 📦 Installation (lokal)
+3.  **Create and configure the environment file:**
+    Copy the template to a new `.env` file and fill in your credentials.
+    ```bash
+    cp .env.template .env
+    ```
+    Now edit `.env` with your details:
+    ```properties
+    # Confluence configuration
+    CONFLUENCE_URL=https://your-domain.atlassian.net/wiki
+    CONFLUENCE_SPACE=YOURSPACEKEY
+    CONFLUENCE_EMAIL=your-email@example.com
+    CONFLUENCE_API_TOKEN=your-confluence-api-token
 
-```bash
-git clone <repo-url>
-cd <projektordner>
-pip install -r requirements.txt
-# .env Datei mit API-Zugängen anlegen
-uvicorn main:app --reload
-```
+    # Qdrant configuration
+    QDRANT_HOST=localhost
+    QDRANT_PORT=6333
+    QDRANT_COLLECTION=confluence_knowledge
 
----
+    # Anthropic configuration
+    ANTHROPIC_API_KEY=your-anthropic-api-key
+    CLAUDE_MODEL=claude-3-5-sonnet-20240620
+    ```
 
-## 📄 Projektstruktur
+4.  **Install dependencies:**
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-```text
-.
-├── main.py                # FastAPI Backend
-├── confluence_crawler.py # API-Zugriff auf Confluence
-├── vector_store.py       # Embedding + FAISS Logik
-├── slack_handler.py      # Slack-Eingabe & Routing
-├── llm_service.py        # Claude-Kommunikation
-├── requirements.txt
-├── README.md
-└── .env                  # Enthält API Keys und Tokens
-```
+### 3. Usage
 
----
+1.  **Ingest Data:**
+    Run the `ingest.py` script to fetch documents from Confluence, create embeddings, and load them into Qdrant.
+    ```bash
+    python src/ingest.py
+    ```
 
-## 🧪 Beispiel
-
-```bash
-/askai Wie aktualisiere ich mein Passwort?
-→ Antwort mit Kontext aus Confluence + natürlicher Formulierung
-```
-
----
-
-## 📌 Nächste Schritte
-
-- [ ] Confluence API Integration
-- [ ] Vektorspeicherung & Embedding
-- [ ] Slack Routing & Claude-Antwort
-- [ ] Deployment (Docker, ggf. AWS/GCP)
-
----
-
-## 📬 Kontakt
-
-Projektleitung: [Vladislav Sabolotny](mailto:vlad@example.com)
+2.  **Ask Questions:**
+    Run the `ask_claude.py` script to start the interactive Q&A session.
+    ```bash
+    python src/ask_claude.py
+    ```
 
 ---
 
 ## 📝 Lizenz
 
-MIT License – feel free to use, contribute, and improve!
-
----
-
-## Image bauen
-docker build -t faiss-example .
-
-## Container ausführen
-docker run --rm faiss-example
-
----
-
-## Ressoursen
-
-Admin panel atlassian https://admin.atlassian.com/
-
-## Datenbank Qdrant
-
-Dashboard: http://localhost:6333/dashboard#/collections 
+This project is licensed under the MIT License.

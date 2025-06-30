@@ -1,7 +1,8 @@
-faiss-cpu 
-sentence-transformers
-tf-keras
+fastapi
+uvicorn
 python-dotenv
-requests
-qdrant-client>=1.7.0
+sentence-transformers
+qdrant-client
 anthropic
+beautifulsoup4
+atlassian-python-api
