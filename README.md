@@ -11,7 +11,7 @@ Hilf Slack-Nutzern, auf einfache Weise auf internes Wissen zuzugreifen – direk
 ## 🧱 Architektur
 
 ```text
-Slack ↔ FastAPI ↔ Vektor-Datenbank (FAISS/Qdrant)
+Slack ↔ FastAPI ↔ Vektor-Datenbank (Qdrant)
                     ↕️                     
           Confluence API  →  Embedding Service
                     ↕️                     
@@ -35,7 +35,7 @@ Slack ↔ FastAPI ↔ Vektor-Datenbank (FAISS/Qdrant)
 | Bereich             | Tool/Technologie                   |
 |---------------------|------------------------------------|
 | Embeddings          | `sentence-transformers`            |
-| Vektor-Datenbank    | FAISS oder Qdrant                  |
+| Vektor-Datenbank    | Qdrant                             |
 | Backend/API         | FastAPI                            |
 | Slack SDK           | `slack_bolt` (Python)              |
 | LLM API             | Claude (Anthropic)                 |
