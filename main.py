@@ -9,32 +9,30 @@ from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT
 # .env laden
 load_dotenv()
 
-# Konfiguration
+# Configuration
 QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 COLLECTION_NAME = os.getenv("QDRANT_COLLECTION", "confluence_knowledge")
 CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY")
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-3-sonnet-20240620")
 API_KEY = os.getenv("API_KEY")
 
-# Initialisierung
-app = FastAPI(title="Claude Confluence Bot API")
-embedder = SentenceTransformer("paraphrase-MiniLM-L6-v2")
-qdrant = QdrantClient(url=f"http://{QDRANT_HOST}:{QDRANT_PORT}")
-anthropic = Anthropic(api_key=CLAUDE_API_KEY)
-
-# Initialisierung
+# Initialise
 app = FastAPI(title="Claude Confluence Bot API (mit Auth)")
 embedder = SentenceTransformer("paraphrase-MiniLM-L6-v2")
-qdrant = QdrantClient(url=f"http://{QDRANT_HOST}:{QDRANT_PORT}")
 anthropic = Anthropic(api_key=CLAUDE_API_KEY)
+qdrant = QdrantClient(
+    url=f"http://{QDRANT_HOST}:{QDRANT_PORT}",
+    api_key=QDRANT_API_KEY
+)
 
 # API-Key Auth Dependency
 def verify_api_key(x_api_key: str = Header(...)):
     if x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Ungültiger API-Key")
 
-# Datamodelle
+# Data models
 class AskRequest(BaseModel):
     question: str
     top_k: int = 3
@@ -43,7 +41,7 @@ class AskResponse(BaseModel):
     answer: str
     context_used: list
 
-# Hilfsfunktionen
+# Helper
 def get_context(query: str, top_k: int):
     """
     Findet die relevantesten Text-Chunks für eine gegebene Anfrage.

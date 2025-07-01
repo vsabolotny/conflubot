@@ -1,15 +1,25 @@
-# Basis-Image mit Python
-FROM python:3.10-slim-bullseye
+# ---- Base Image ----
+FROM python:3.11-slim
 
-# Arbeitsverzeichnis setzen
+# ---- Set Workdir ----
 WORKDIR /app
 
-# Abhängigkeiten installieren
+# ---- Install System Dependencies ----
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# ---- Install Python Dependencies ----
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Code kopieren
+# ---- Copy Project Files ----
 COPY . .
 
-# Standardbefehl zum Ausführen (kannst du anpassen)
-CMD ["python", "main.py"]
+# ---- Set Env Variables ----
+ENV PYTHONUNBUFFERED=1 \
+    TOKENIZERS_PARALLELISM=false
+
+# ---- Run Application ----
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

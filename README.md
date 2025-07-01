@@ -99,3 +99,10 @@ This project provides a question-answering system that uses a Large Language Mod
 ## 📝 Lizenz
 
 This project is licensed under the MIT License.
+
+
+## AWS 
+aws ecr create-repository --repository-name claude-confluence-bot --region us-east-1
+
+
+aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin 456359847368.dkr.ecr.eu-central-1.amazonaws.com
