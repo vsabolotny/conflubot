@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Header, Depends
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
@@ -15,12 +15,24 @@ QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
 COLLECTION_NAME = os.getenv("QDRANT_COLLECTION", "confluence_knowledge")
 CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY")
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-3-sonnet-20240620")
+API_KEY = os.getenv("API_KEY")
 
 # Initialisierung
 app = FastAPI(title="Claude Confluence Bot API")
 embedder = SentenceTransformer("paraphrase-MiniLM-L6-v2")
 qdrant = QdrantClient(url=f"http://{QDRANT_HOST}:{QDRANT_PORT}")
 anthropic = Anthropic(api_key=CLAUDE_API_KEY)
+
+# Initialisierung
+app = FastAPI(title="Claude Confluence Bot API (mit Auth)")
+embedder = SentenceTransformer("paraphrase-MiniLM-L6-v2")
+qdrant = QdrantClient(url=f"http://{QDRANT_HOST}:{QDRANT_PORT}")
+anthropic = Anthropic(api_key=CLAUDE_API_KEY)
+
+# API-Key Auth Dependency
+def verify_api_key(x_api_key: str = Header(...)):
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="Ungültiger API-Key")
 
 # Datamodelle
 class AskRequest(BaseModel):

@@ -68,17 +68,31 @@ This project provides a question-answering system that uses a Large Language Mod
 
 ### 3. Usage
 
-1.  **Ingest Data:**
+1.  **Start Qdrant (Vector Database):**
+    The easiest way to run Qdrant is with Docker:
+    ```bash
+    docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant
+    ```
+    The Qdrant dashboard will be available at [http://localhost:6333/dashboard](http://localhost:6333/dashboard).
+
+2.  **Ingest Data:**
     Run the `ingest.py` script to fetch documents from Confluence, create embeddings, and load them into Qdrant.
     ```bash
     python src/ingest.py
     ```
 
-2.  **Ask Questions:**
-    Run the `ask_claude.py` script to start the interactive Q&A session.
+3.  **Ask Questions:**
+    Run the `ask_claude.py` script to start the interactive Q\&A session.
     ```bash
     python src/ask_claude.py
     ```
+
+4.  **Start the API:**
+    If you want to run the FastAPI app (e.g., in `main.py`), use:
+    ```bash
+    uvicorn main:app --reload
+    ```
+    This will start the API locally with hot-reloading. Make sure `uvicorn` is installed (`pip install uvicorn`).
 
 ---
 
