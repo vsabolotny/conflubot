@@ -21,5 +21,8 @@ COPY . .
 ENV PYTHONUNBUFFERED=1 \
     TOKENIZERS_PARALLELISM=false
 
+# ---- Health Check ----
+HEALTHCHECK CMD curl --fail http://localhost:8000/health || exit 1
+
 # ---- Run Application ----
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

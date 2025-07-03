@@ -113,6 +113,10 @@ aws ecr describe-repositories
 
 docker build -t claude-bot .
 docker tag claude-bot 456359847368.dkr.ecr.eu-central-1.amazonaws.com/claude-confluence-bot:latest
+
+aws ecr get-login-password --region eu-central-1 | \
+docker login --username AWS --password-stdin 456359847368.dkr.ecr.eu-central-1.amazonaws.com
+                             
 docker push 456359847368.dkr.ecr.eu-central-1.amazonaws.com/claude-confluence-bot:latest
 
 
