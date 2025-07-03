@@ -1,4 +1,5 @@
 import os
+import traceback
 from fastapi import FastAPI, HTTPException, Request, Header, Depends
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -22,9 +23,13 @@ API_KEY = os.getenv("API_KEY")
 app = FastAPI(title="Claude Confluence Bot API (mit Auth)")
 embedder = SentenceTransformer("paraphrase-MiniLM-L6-v2")
 anthropic = Anthropic(api_key=CLAUDE_API_KEY)
+
+api_key = os.getenv("QDRANT_API_KEY")
+QDRANT_USE_SSL = os.getenv("QDRANT_USE_SSL", "false").lower() == "true"
+scheme = "https" if QDRANT_USE_SSL else "http"
 qdrant = QdrantClient(
-    url=f"http://{QDRANT_HOST}:{QDRANT_PORT}",
-    api_key=QDRANT_API_KEY
+    url=f"{scheme}://{QDRANT_HOST}:{QDRANT_PORT}",
+    api_key=api_key if api_key else None
 )
 
 # API-Key Auth Dependency
@@ -120,4 +125,5 @@ def ask(req: AskRequest):
 
     except Exception as e:
         print(f"An error occurred: {e}")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail="An internal server error occurred.")

@@ -8,7 +8,6 @@ from qdrant_client import QdrantClient
 from qdrant_client.http.models import VectorParams, Distance, PointStruct
 import uuid
 
-# Lade .env Variablen
 load_dotenv()
 
 BASE_URL = os.getenv("CONFLUENCE_URL")
