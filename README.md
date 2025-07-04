@@ -104,10 +104,15 @@ uvicorn main:app --reload
 
 The following commands outline the process for pushing the application's Docker image to Amazon ECR.
 
-1.  **Create ECR Repository:**
+1.  **Create ECR Repository (private):**
     ```bash
     aws ecr create-repository --repository-name claude-confluence-bot --region eu-central-1
     ```
+    Or you can create a public repository:
+    ```bash
+    aws ecr-public create-repository --repository-name claude-confluence-bot --region us-east-1
+    ```
+
 2.  **Login to ECR:**
     ```bash
     aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin 456359847368.dkr.ecr.eu-central-1.amazonaws.com
@@ -117,6 +122,10 @@ The following commands outline the process for pushing the application's Docker 
     docker tag claude-confluence-bot:latest 456359847368.dkr.ecr.eu-central-1.amazonaws.com/claude-confluence-bot:latest
     docker push 456359847368.dkr.ecr.eu-central-1.amazonaws.com/claude-confluence-bot:latest
     ```
+
+docker tag claude-confluence-bot:latest public.ecr.aws/i5l2i6q0/claude-confluence-bot
+docker push public.ecr.aws/i5l2i6q0/claude-confluence-bot
+
 
 ---
 ## 📝 License
