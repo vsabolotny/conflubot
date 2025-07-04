@@ -30,93 +30,95 @@ This project provides a question-answering system that uses a Large Language Mod
     git clone <your-repository-url>
     cd vektor-exp
     ```
-
-2.  **Set up Qdrant:**
-    The easiest way to run Qdrant is with Docker.
-    ```bash
-    docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant
-    ```
-    Your Qdrant dashboard will be available at [http://localhost:6333/dashboard](http://localhost:6333/dashboard).
-
-3.  **Create and configure the environment file:**
+2.  **Create and configure the environment file:**
     Copy the template to a new `.env` file and fill in your credentials.
     ```bash
     cp .env.template .env
     ```
-    Now edit `.env` with your details:
-    ```properties
-    # Confluence configuration
-    CONFLUENCE_URL=https://your-domain.atlassian.net/wiki
-    CONFLUENCE_SPACE=YOURSPACEKEY
-    CONFLUENCE_EMAIL=your-email@example.com
-    CONFLUENCE_API_TOKEN=your-confluence-api-token
+    Now edit `.env` with your details.
 
-    # Qdrant configuration
-    QDRANT_HOST=localhost
-    QDRANT_PORT=6333
-    QDRANT_COLLECTION=confluence_knowledge
-
-    # Anthropic configuration
-    ANTHROPIC_API_KEY=your-anthropic-api-key
-    CLAUDE_MODEL=claude-3-5-sonnet-20240620
-    ```
-
-4.  **Install dependencies:**
+3.  **Install dependencies:**
     ```bash
     pip install -r requirements.txt
     ```
 
-### 3. Usage
+---
+## 🐳 Running with Docker
 
-1.  **Start Qdrant (Vector Database):**
-    The easiest way to run Qdrant is with Docker:
-    ```bash
-    docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant
-    ```
-    The Qdrant dashboard will be available at [http://localhost:6333/dashboard](http://localhost:6333/dashboard).
+This project is fully containerized. You can run the Qdrant vector database and the FastAPI application using Docker.
 
-2.  **Ingest Data:**
-    Run the `ingest.py` script to fetch documents from Confluence, create embeddings, and load them into Qdrant.
-    ```bash
-    python src/ingest.py
-    ```
+### 1. Start Qdrant Database
+You can start the Qdrant service using the provided Docker Compose file:
+```bash
+docker-compose up -d qdrant
+```
+The Qdrant dashboard will be available at [http://localhost:6333/dashboard](http://localhost:6333/dashboard).
 
-3.  **Ask Questions:**
-    Run the `ask_claude.py` script to start the interactive Q\&A session.
-    ```bash
-    python src/ask_claude.py
-    ```
+### 2. Build the Application Image
+Build the Docker image for the FastAPI application using the Dockerfile:
+```bash
+docker build -t claude-confluence-bot .
+```
 
-4.  **Start the API:**
-    If you want to run the FastAPI app (e.g., in `main.py`), use:
-    ```bash
-    uvicorn main:app --reload
-    ```
-    This will start the API locally with hot-reloading. Make sure `uvicorn` is installed (`pip install uvicorn`).
+### 3. Run the Application Container
+Run the application container, making sure to pass the environment variables from your .env file.
+```bash
+docker run --rm -p 8000:8000 --env-file .env claude-confluence-bot
+```
+*Note: `--network=host` is used here to allow the application container to connect to Qdrant running on `localhost`. For more robust setups, consider using a shared Docker network.*
+
+The API will be available at http://localhost:8000.
 
 ---
 
-## 📝 Lizenz
+## ⚙️ Usage
+
+### 1. Ingest Data
+Run the 
+
+embed_to_qdrant.py
+
+ script to fetch documents from Confluence, create embeddings, and load them into Qdrant.
+```bash
+python src/embed_to_qdrant.py
+```
+
+### 2. Ask Questions (Interactive)
+Run the 
+
+ask_claude.py
+
+ script to start an interactive Q&A session in your terminal.
+```bash
+python src/ask_claude.py
+```
+
+### 3. Start the API (Local Development)
+If you are not using Docker, you can run the FastAPI app directly with `uvicorn` for local development with hot-reloading.
+```bash
+uvicorn main:app --reload
+```
+
+---
+## ☁️ AWS Deployment
+
+The following commands outline the process for pushing the application's Docker image to Amazon ECR.
+
+1.  **Create ECR Repository:**
+    ```bash
+    aws ecr create-repository --repository-name claude-confluence-bot --region eu-central-1
+    ```
+2.  **Login to ECR:**
+    ```bash
+    aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin 456359847368.dkr.ecr.eu-central-1.amazonaws.com
+    ```
+3.  **Tag and Push the Image:**
+    ```bash
+    docker tag claude-confluence-bot:latest 456359847368.dkr.ecr.eu-central-1.amazonaws.com/claude-confluence-bot:latest
+    docker push 456359847368.dkr.ecr.eu-central-1.amazonaws.com/claude-confluence-bot:latest
+    ```
+
+---
+## 📝 License
 
 This project is licensed under the MIT License.
-
-
-## AWS 
-
-aws ecr create-repository --repository-name claude-confluence-bot --region us-east-1
-
-aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin 456359847368.dkr.ecr.eu-central-1.amazonaws.com
-
-aws ecr describe-repositories
-
-## Push build to AWS
-
-docker build -t claude-bot .
-docker tag claude-bot 456359847368.dkr.ecr.eu-central-1.amazonaws.com/claude-confluence-bot:latest
-
-aws ecr get-login-password --region eu-central-1 | \
-docker login --username AWS --password-stdin 456359847368.dkr.ecr.eu-central-1.amazonaws.com
-                             
-docker push 456359847368.dkr.ecr.eu-central-1.amazonaws.com/claude-confluence-bot:latest
-
-
