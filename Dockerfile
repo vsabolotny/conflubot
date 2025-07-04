@@ -21,6 +21,8 @@ COPY . .
 ENV PYTHONUNBUFFERED=1 \
     TOKENIZERS_PARALLELISM=false
 
+EXPOSE 8000
+
 # ---- Health Check ----
 HEALTHCHECK CMD curl --fail http://localhost:8000/health || exit 1
 

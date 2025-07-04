@@ -1,6 +1,7 @@
 import os
 import traceback
 from fastapi import FastAPI, HTTPException, Request, Header, Depends
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
@@ -94,7 +95,7 @@ def ask_claude(user_prompt: str) -> str:
 # API-Endpunkte
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return JSONResponse(status_code=200, content={"status": "ok"})
 
 @app.get("/version")
 def version():
