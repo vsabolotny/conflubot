@@ -44,7 +44,7 @@ else:
     )
     print("Connecting to local Qdrant instance.")
 
-# Seiten abrufen
+# Get pages
 def get_pages(limit=10):
     url = f"{BASE_URL}/rest/api/content"
     params = {
@@ -54,20 +54,20 @@ def get_pages(limit=10):
     }
     response = requests.get(url, headers=headers, auth=auth, params=params)
     if response.status_code != 200:
-        raise Exception(f"Fehler bei Anfrage: {response.status_code} - {response.text}")
+        raise Exception(f"Error during request: {response.status_code} - {response.text}")
     return response.json().get("results", [])
 
-# HTML zu Text
+# HTML to text
 def html_to_text(html):
     soup = BeautifulSoup(html, "html.parser")
     return soup.get_text(separator="\n")
 
-# Text chunken
+# Chunk text
 def chunk_text(text, max_words=100):
     words = text.split()
     return [" ".join(words[i:i+max_words]) for i in range(0, len(words), max_words) if len(words[i:i+max_words]) > 5]
 
-# Collection initialisieren oder ersetzen
+# Initialize or replace collection
 def init_collection(dim):
     if qdrant_client.collection_exists(COLLECTION_NAME):
         qdrant_client.delete_collection(COLLECTION_NAME)
@@ -80,7 +80,7 @@ def init_collection(dim):
         }
     )
 
-# Embedding und Upload
+# Embedding and upload
 def embed_and_upload(chunks, metadaten):
     model = SentenceTransformer("paraphrase-MiniLM-L6-v2")
     vectors = model.encode(chunks)
@@ -101,7 +101,7 @@ def embed_and_upload(chunks, metadaten):
     )
     print(f"✅ {len(points)} Chunks gespeichert in Qdrant (Collection: {COLLECTION_NAME})")
 
-# Hauptprozess
+# Main process
 if __name__ == "__main__":
     print("🔍 Lade Confluence Seiten ...")
     pages = get_pages()
