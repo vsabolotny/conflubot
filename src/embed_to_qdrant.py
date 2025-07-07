@@ -4,10 +4,12 @@ from dotenv import load_dotenv
 from bs4 import BeautifulSoup
 from requests.auth import HTTPBasicAuth
 from sentence_transformers import SentenceTransformer
+from qdrant_client import QdrantClient
 from qdrant_client.http.models import VectorParams, Distance, PointStruct
 import uuid
 
 # Load environment variables from .env file
+print("Loading environment variables...")
 load_dotenv()
 
 BASE_URL = os.getenv("CONFLUENCE_URL")
@@ -15,6 +17,11 @@ SPACE_KEY = os.getenv("CONFLUENCE_SPACE")
 EMAIL = os.getenv("CONFLUENCE_EMAIL")
 API_TOKEN = os.getenv("CONFLUENCE_API_TOKEN")
 COLLECTION_NAME = os.getenv("QDRANT_COLLECTION", "confluence_knowledge")
+
+print(f"Confluence URL: {BASE_URL}")
+print(f"Confluence Space: {SPACE_KEY}")
+print(f"Qdrant Collection: {COLLECTION_NAME}")
+
 
 auth = HTTPBasicAuth(EMAIL, API_TOKEN)
 headers = { "Accept": "application/json" }
@@ -25,9 +32,14 @@ qdrant_port = int(os.getenv("QDRANT_PORT", 6333))
 qdrant_api_key = os.getenv("QDRANT_API_KEY")
 qdrant_use_ssl = os.getenv("QDRANT_USE_SSL", "false").lower() == "true"
 
+print(f"Qdrant Host: {qdrant_host}")
+print(f"Qdrant Port: {qdrant_port}")
+print(f"Qdrant Use SSL: {qdrant_use_ssl}")
+
 # Initialize Qdrant client based on configuration
 if qdrant_api_key:
     # Production setup with API key
+    print("QDRANT_API_KEY found, connecting with API key.")
     qdrant_client = QdrantClient(
         host=qdrant_host,
         port=qdrant_port,
@@ -37,12 +49,12 @@ if qdrant_api_key:
     print("Connecting to Qdrant Cloud with API key.")
 else:
     # Local setup without API key
+    print("QDRANT_API_KEY not found, connecting without API key.")
     qdrant_client = QdrantClient(
         host=qdrant_host, 
         port=qdrant_port,
         https=qdrant_use_ssl
     )
-    print("Connecting to local Qdrant instance.")
 
 # Get pages
 def get_pages(limit=10):
