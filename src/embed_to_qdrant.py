@@ -4,25 +4,45 @@ from dotenv import load_dotenv
 from bs4 import BeautifulSoup
 from requests.auth import HTTPBasicAuth
 from sentence_transformers import SentenceTransformer
-from qdrant_client import QdrantClient
 from qdrant_client.http.models import VectorParams, Distance, PointStruct
 import uuid
 
+# Load environment variables from .env file
 load_dotenv()
 
 BASE_URL = os.getenv("CONFLUENCE_URL")
 SPACE_KEY = os.getenv("CONFLUENCE_SPACE")
 EMAIL = os.getenv("CONFLUENCE_EMAIL")
 API_TOKEN = os.getenv("CONFLUENCE_API_TOKEN")
-QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
-QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
 COLLECTION_NAME = os.getenv("QDRANT_COLLECTION", "confluence_knowledge")
 
 auth = HTTPBasicAuth(EMAIL, API_TOKEN)
 headers = { "Accept": "application/json" }
 
-# Qdrant Client
-qdrant = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
+# Qdrant configuration
+qdrant_host = os.getenv("QDRANT_HOST")
+qdrant_port = int(os.getenv("QDRANT_PORT", 6333))
+qdrant_api_key = os.getenv("QDRANT_API_KEY")
+qdrant_use_ssl = os.getenv("QDRANT_USE_SSL", "false").lower() == "true"
+
+# Initialize Qdrant client based on configuration
+if qdrant_api_key:
+    # Production setup with API key
+    qdrant_client = QdrantClient(
+        host=qdrant_host,
+        port=qdrant_port,
+        api_key=qdrant_api_key,
+        https=qdrant_use_ssl,
+    )
+    print("Connecting to Qdrant Cloud with API key.")
+else:
+    # Local setup without API key
+    qdrant_client = QdrantClient(
+        host=qdrant_host, 
+        port=qdrant_port,
+        https=qdrant_use_ssl
+    )
+    print("Connecting to local Qdrant instance.")
 
 # Seiten abrufen
 def get_pages(limit=10):
@@ -49,10 +69,10 @@ def chunk_text(text, max_words=100):
 
 # Collection initialisieren oder ersetzen
 def init_collection(dim):
-    if qdrant.collection_exists(COLLECTION_NAME):
-        qdrant.delete_collection(COLLECTION_NAME)
+    if qdrant_client.collection_exists(COLLECTION_NAME):
+        qdrant_client.delete_collection(COLLECTION_NAME)
 
-    qdrant.create_collection(
+    qdrant_client.create_collection(
         collection_name=COLLECTION_NAME,
         vectors_config={
             "size": dim,
@@ -75,7 +95,7 @@ def embed_and_upload(chunks, metadaten):
         )
         points.append(point)
 
-    qdrant.upload_points(
+    qdrant_client.upload_points(
         collection_name=COLLECTION_NAME,
         points=points,
     )
