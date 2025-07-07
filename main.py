@@ -1,6 +1,8 @@
 import os
 import traceback
 import time
+import random
+import anthropic
 from fastapi import FastAPI, HTTPException, Request, Header, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -74,30 +76,24 @@ def search_qdrant(query: str, top_k: int):
     )
     return [hit.payload for hit in hits]
 
-def ask_claude(user_prompt: str, max_retries: int = 3):
-    """
-    Sends a prompt to the Anthropic Claude model with retry logic for overloaded errors.
-    """
-    for attempt in range(max_retries):
+def call_claude_throttled(prompt, delay=2, retries=3):
+    for attempt in range(retries):
         try:
-            print(f"Attempting to call Claude API (Attempt {attempt + 1}/{max_retries})...")
-            message = anthropic.messages.create(
-                model=CLAUDE_MODEL,
-                max_tokens=2048,
-                messages=[
-                    {"role": "user", "content": user_prompt}
-                ]
+            time.sleep(delay)  # delay between attempts
+            response = anthropic.messages.create(
+                model="claude-3-haiku-20240307",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=1000
             )
-            return message.content[0].text
+            return response.content[0].text if hasattr(response, "content") else response
         except APIStatusError as e:
-            # Check if the error is due to the service being overloaded (status code 529)
-            if e.status_code == 529 and attempt < max_retries - 1:
-                wait_time = 2 ** (attempt + 1)  # Exponential backoff: 2, 4 seconds
-                print(f"Claude API is overloaded. Retrying in {wait_time} seconds...")
-                time.sleep(wait_time)
+            if getattr(e, "status_code", None) == 529:
+                wait = delay + attempt + random.uniform(0.1, 0.5)
+                print(f"Overloaded. Waiting {wait:.2f}s before retry...")
+                time.sleep(wait)
             else:
-                print(f"An unrecoverable API error occurred after retries or for a non-retriable status: {e}")
-                raise e # Re-raise the exception
+                raise
+    raise Exception("Failed after retries due to overload.")
 
 # Exception handler
 @app.exception_handler(Exception)
@@ -134,7 +130,7 @@ def ask(request: AskRequest):
         """
 
         # 3. Get the answer from Claude
-        answer = ask_claude(user_prompt)
+        answer = call_claude_throttled(user_prompt)
 
         # 4. Format and return the response
         sources = [{"title": res["title"], "url": res["url"]} for res in context_results]
