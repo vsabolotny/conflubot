@@ -1,42 +1,58 @@
 import os
 import traceback
+import time
 from fastapi import FastAPI, HTTPException, Request, Header, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 from qdrant_client import QdrantClient
-from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT
+from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT, APIStatusError
 
-# .env laden
+# Disable tokenizer parallelism to avoid warnings
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+# Load .env file
 load_dotenv()
 
 # Configuration
-QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
-QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
+QDRANT_HOST = os.getenv("QDRANT_HOST")
+QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
+QDRANT_USE_SSL = os.getenv("QDRANT_USE_SSL", "false").lower() == "true"
 COLLECTION_NAME = os.getenv("QDRANT_COLLECTION", "confluence_knowledge")
 CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY")
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-3-sonnet-20240620")
 API_KEY = os.getenv("API_KEY")
 
-# Initialise
-app = FastAPI(title="Claude Confluence Bot API (mit Auth)")
+# Initialization
+app = FastAPI(title="Claude Confluence Bot API (with Auth)")
 embedder = SentenceTransformer("paraphrase-MiniLM-L6-v2")
 anthropic = Anthropic(api_key=CLAUDE_API_KEY)
 
-api_key = os.getenv("QDRANT_API_KEY")
-QDRANT_USE_SSL = os.getenv("QDRANT_USE_SSL", "false").lower() == "true"
-scheme = "https" if QDRANT_USE_SSL else "http"
-qdrant = QdrantClient(
-    url=f"{scheme}://{QDRANT_HOST}:{QDRANT_PORT}",
-    api_key=api_key if api_key else None
-)
+# Initialize Qdrant client based on configuration
+if QDRANT_API_KEY:
+    # Production setup with API key
+    print("QDRANT_API_KEY found, connecting with API key.")
+    qdrant = QdrantClient(
+        host=QDRANT_HOST,
+        port=QDRANT_PORT,
+        api_key=QDRANT_API_KEY,
+        https=QDRANT_USE_SSL,
+    )
+else:
+    # Local setup without API key
+    print("QDRANT_API_KEY not found, connecting without API key.")
+    qdrant = QdrantClient(
+        host=QDRANT_HOST, 
+        port=QDRANT_PORT,
+        https=QDRANT_USE_SSL
+    )
 
 # API-Key Auth Dependency
 def verify_api_key(x_api_key: str = Header(...)):
     if x_api_key != API_KEY:
-        raise HTTPException(status_code=401, detail="Ungültiger API-Key")
+        raise HTTPException(status_code=401, detail="Invalid API Key")
 
 # Data models
 class AskRequest(BaseModel):
@@ -45,86 +61,102 @@ class AskRequest(BaseModel):
 
 class AskResponse(BaseModel):
     answer: str
-    context_used: list
+    sources: list[dict]
 
-# Helper
-def get_context(query: str, top_k: int):
-    """
-    Findet die relevantesten Text-Chunks für eine gegebene Anfrage.
-    """
-    query_embedding = embedder.encode(query).tolist()
-    
-    # FIX: The keyword argument is 'query', not 'vector'.
-    search_result = qdrant.query_points(
+# Helper functions
+def search_qdrant(query: str, top_k: int):
+    vector = embedder.encode(query).tolist()
+    hits = qdrant.search(
         collection_name=COLLECTION_NAME,
-        query=query_embedding,
+        query_vector=vector,
         limit=top_k,
         with_payload=True
     )
-    return search_result.points
+    return [hit.payload for hit in hits]
 
-def build_prompt(query: str, context_chunks):
-    context_text = ""
-    for i, chunk in enumerate(context_chunks):
-        context_text += f"Dokument {i+1} (Titel: {chunk.payload.get('title', 'ohne Titel')}):\n{chunk.payload.get('text', '')}\n\n"
-    return (
-        f"{HUMAN_PROMPT} Du bist ein hilfreicher Assistent, der Fragen auf Basis interner Wissensdokumente beantwortet. "
-        f"Nutze nur den folgenden Kontext. Wenn die Antwort nicht enthalten ist, sage \"Ich weiß es nicht.\"\n\n"
-        f"{context_text}\n"
-        f"Frage: {query}\n"
-        f"{AI_PROMPT}"
+def ask_claude(user_prompt: str, max_retries: int = 3):
+    """
+    Sends a prompt to the Anthropic Claude model with retry logic for overloaded errors.
+    """
+    for attempt in range(max_retries):
+        try:
+            print(f"Attempting to call Claude API (Attempt {attempt + 1}/{max_retries})...")
+            message = anthropic.messages.create(
+                model=CLAUDE_MODEL,
+                max_tokens=2048,
+                messages=[
+                    {"role": "user", "content": user_prompt}
+                ]
+            )
+            return message.content[0].text
+        except APIStatusError as e:
+            # Check if the error is due to the service being overloaded (status code 529)
+            if e.status_code == 529 and attempt < max_retries - 1:
+                wait_time = 2 ** (attempt + 1)  # Exponential backoff: 2, 4 seconds
+                print(f"Claude API is overloaded. Retrying in {wait_time} seconds...")
+                time.sleep(wait_time)
+            else:
+                print(f"An unrecoverable API error occurred after retries or for a non-retriable status: {e}")
+                raise e # Re-raise the exception
+
+# Exception handler
+@app.exception_handler(Exception)
+async def generic_exception_handler(request: Request, exc: Exception):
+    traceback.print_exc()
+    return JSONResponse(
+        status_code=500,
+        content={"type": "error", "error": {"type": "internal_server_error", "message": str(exc)}},
     )
 
-def ask_claude(user_prompt: str) -> str:
-    """
-    Fragt das Claude-Modell mit dem bereitgestellten Prompt über die Messages API.
-    """
-    # FIX: Use the Messages API for Claude 3.5 Sonnet
-    system_prompt = "Du bist ein hilfreicher Assistent, der Fragen auf Basis interner Wissensdokumente beantwortet. Wenn die Antwort nicht im Kontext enthalten ist, sage ehrlich 'Ich weiß es nicht.'"
-    
-    response = anthropic.messages.create(
-        model=CLAUDE_MODEL,
-        max_tokens=500,
-        system=system_prompt,
-        messages=[
-            {"role": "user", "content": user_prompt}
-        ]
-    )
-    return response.content[0].text.strip()
-
-# API-Endpunkte
-@app.get("/health")
-def health():
-    return JSONResponse(status_code=200, content={"status": "ok"})
-
-@app.get("/version")
-def version():
-    return {"version": "1.0.0"}
-
-@app.post("/ask", response_model=AskResponse)
-def ask(req: AskRequest):
+# API Endpoints
+@app.post("/ask", response_model=AskResponse, dependencies=[Depends(verify_api_key)])
+def ask(request: AskRequest):
     try:
-        context_chunks = get_context(req.question, req.top_k)
+        # 1. Search for relevant context in Qdrant
+        context_results = search_qdrant(request.question, request.top_k)
         
-        context_text = ""
-        for i, chunk in enumerate(context_chunks):
-            source = chunk.payload.get('source', 'Unbekannte Quelle')
-            page = chunk.payload.get('page', '?')
-            text = chunk.payload.get('text', '')
-            context_text += f"Dokument {i+1} (Quelle: {source}, Seite: {page}):\n{text}\n\n"
+        if not context_results:
+            return AskResponse(answer="I couldn't find any relevant information in the knowledge base to answer your question.", sources=[])
 
-        user_prompt = (
-            f"Bitte beantworte die folgende Frage nur auf Basis des bereitgestellten Kontexts.\n\n"
-            f"--- BEGINN KONTEXT ---\n{context_text}--- ENDE KONTEXT ---\n\n"
-            f"Frage: {req.question}"
-        )
+        # 2. Build the prompt for Claude
+        context = "\n\n".join([f"Source: {res['url']}\nContent: {res['text']}" for res in context_results])
+        
+        user_prompt = f"""{HUMAN_PROMPT}
+        Based on the following context from our knowledge base, please answer the user's question.
+        Answer in the same language as the user's question.
+        Cite the sources you used in your answer using markdown links like [Source Title](URL).
 
+        Context:
+        {context}
+
+        Question: {request.question}
+        {AI_PROMPT}
+        """
+
+        # 3. Get the answer from Claude
         answer = ask_claude(user_prompt)
-        
-        context_list = [chunk.payload for chunk in context_chunks]
-        return AskResponse(answer=answer, context_used=context_list)
+
+        # 4. Format and return the response
+        sources = [{"title": res["title"], "url": res["url"]} for res in context_results]
+        return AskResponse(answer=answer, sources=sources)
+
+    except APIStatusError as e:
+        # Specifically handle API errors after retries
+        if e.status_code == 529:
+            raise HTTPException(status_code=503, detail="The service is temporarily overloaded. Please try again later.")
+        else:
+            raise HTTPException(status_code=500, detail=f"An unexpected API error occurred: {e}")
 
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print(f"An unexpected error occurred: {e}")
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail="An internal server error occurred.")
+        # The generic exception handler will catch this and return a 500 error
+        raise e
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
+
+@app.get("/version")
+def get_version():
+    return {"version": "1.0.0"}
