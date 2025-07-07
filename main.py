@@ -108,15 +108,24 @@ async def generic_exception_handler(request: Request, exc: Exception):
 @app.post("/ask", response_model=AskResponse, dependencies=[Depends(verify_api_key)])
 def ask(request: AskRequest):
     try:
+        print(f"[DEBUG] Received /ask request: question='{request.question}', top_k={request.top_k}")
+
         # 1. Search for relevant context in Qdrant
         context_results = search_qdrant(request.question, request.top_k)
-        
+        print(f"[DEBUG] Qdrant search returned {len(context_results) if context_results else 0} results")
+
+        # Print up to 3 search results for debugging
+        for i, res in enumerate(context_results[:3]):
+            print(f"[DEBUG] Search result {i+1}: title='{res.get('title')}', url='{res.get('url')}', text='{res.get('text')[:100]}...'")
+
         if not context_results:
+            print("[DEBUG] No relevant context found in Qdrant")
             return AskResponse(answer="I couldn't find any relevant information in the knowledge base to answer your question.", sources=[])
 
         # 2. Build the prompt for Claude
         context = "\n\n".join([f"Source: {res['url']}\nContent: {res['text']}" for res in context_results])
-        
+        print(f"[DEBUG] Built context for prompt with {len(context_results)} sources")
+
         user_prompt = f"""{HUMAN_PROMPT}
         Based on the following context from our knowledge base, please answer the user's question.
         Answer in the same language as the user's question.
@@ -128,15 +137,19 @@ def ask(request: AskRequest):
         Question: {request.question}
         {AI_PROMPT}
         """
+        print("[DEBUG] User prompt for Claude constructed")
 
         # 3. Get the answer from Claude
         answer = call_claude_throttled(user_prompt)
+        print("[DEBUG] Received answer from Claude")
 
         # 4. Format and return the response
         sources = [{"title": res["title"], "url": res["url"]} for res in context_results]
+        print(f"[DEBUG] Returning response with {len(sources)} sources")
         return AskResponse(answer=answer, sources=sources)
 
     except APIStatusError as e:
+        print(f"[ERROR] APIStatusError: {e} (status_code={e.status_code})")
         # Specifically handle API errors after retries
         if e.status_code == 529:
             raise HTTPException(status_code=503, detail="The service is temporarily overloaded. Please try again later.")
@@ -144,7 +157,7 @@ def ask(request: AskRequest):
             raise HTTPException(status_code=500, detail=f"An unexpected API error occurred: {e}")
 
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+        print(f"[ERROR] An unexpected error occurred: {e}")
         traceback.print_exc()
         # The generic exception handler will catch this and return a 500 error
         raise e
