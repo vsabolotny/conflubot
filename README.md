@@ -28,7 +28,7 @@ This project provides a question-answering system that uses a Large Language Mod
 1.  **Clone the repository:**
     ```bash
     git clone <your-repository-url>
-    cd vektor-exp
+    cd conflubot
     ```
 2.  **Create and configure the environment file:**
     Copy the template to a new `.env` file and fill in your credentials.
@@ -57,13 +57,13 @@ The Qdrant dashboard will be available at [http://localhost:6333/dashboard](http
 ### 2. Build the Application Image
 Build the Docker image for the FastAPI application using the Dockerfile:
 ```bash
-docker build -t claude-confluence-bot .
+docker build -t conflubot .
 ```
 
 ### 3. Run the Application Container
 Run the application container, making sure to pass the environment variables from your .env file.
 ```bash
-docker run --rm -p 8000:8000 --env-file .env claude-confluence-bot
+docker run --rm -p 8000:8000 --env-file .env conflubot
 ```
 *Note: `--network=host` is used here to allow the application container to connect to Qdrant running on `localhost`. For more robust setups, consider using a shared Docker network.*
 
@@ -106,26 +106,22 @@ The following commands outline the process for pushing the application's Docker 
 
 1.  **Create ECR Repository (private):**
     ```bash
-    aws ecr create-repository --repository-name claude-confluence-bot --region eu-central-1
+    aws ecr create-repository --repository-name conflubot --region eu-central-1
     ```
     Or you can create a public repository:
     ```bash
-    aws ecr-public create-repository --repository-name claude-confluence-bot --region us-east-1
+    aws ecr-public create-repository --repository-name conflubot --region us-east-1
     ```
 
 2.  **Login to ECR:**
     ```bash
-    aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin 456359847368.dkr.ecr.eu-central-1.amazonaws.com
+    aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin <your_aws_account_id>.dkr.ecr.eu-central-1.amazonaws.com
     ```
 3.  **Tag and Push the Image:**
     ```bash
-    docker tag claude-confluence-bot:latest 456359847368.dkr.ecr.eu-central-1.amazonaws.com/claude-confluence-bot:latest
-    docker push 456359847368.dkr.ecr.eu-central-1.amazonaws.com/claude-confluence-bot:latest
+    docker tag conflubot:latest <your_aws_account_id>.dkr.ecr.eu-central-1.amazonaws.com/conflubot:latest
+    docker push <your_aws_account_id>.dkr.ecr.eu-central-1.amazonaws.com/conflubot:latest
     ```
-
-docker tag claude-confluence-bot:latest public.ecr.aws/i5l2i6q0/claude-confluence-bot
-docker push public.ecr.aws/i5l2i6q0/claude-confluence-bot
-
 
 ---
 ## 📝 License
