@@ -11,11 +11,17 @@ from sentence_transformers import SentenceTransformer
 from qdrant_client import QdrantClient
 from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT, APIStatusError
 
+print("Starting Claude Confluence Bot API...")
+
 # Disable tokenizer parallelism to avoid warnings
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
+print("Loading environment variables...")
+
 # Load .env file
 load_dotenv()
+
+print("Environment variables loaded.")
 
 # Configuration
 QDRANT_HOST = os.getenv("QDRANT_HOST")
@@ -27,10 +33,14 @@ CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY")
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-3-sonnet-20240620")
 API_KEY = os.getenv("API_KEY")
 
+print("Configuration loaded.")  
+
 # Initialization
 app = FastAPI(title="Claude Confluence Bot API (with Auth)")
 embedder = SentenceTransformer("paraphrase-MiniLM-L6-v2")
 anthropic = Anthropic(api_key=CLAUDE_API_KEY)
+
+print("FastAPI app and SentenceTransformer initialized.")
 
 # Initialize Qdrant client based on configuration
 if QDRANT_API_KEY:
